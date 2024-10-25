@@ -12,13 +12,14 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final posts = ref.watch(postProvider);
-    final deleted = ref.watch(loadingProvider);
+    final isLoading = ref.watch(loadingProvider);
+    final isLoadingWithMessage = ref.watch(resultStateProvider);
 
     //final postAsync = ref.watch(postAsyncProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Posts'),centerTitle: true,),
-      body: (deleted)
+      body: (isLoadingWithMessage.isLoading)
           ? const Center(child: CircularProgressIndicator())
           : posts.isEmpty?const Center(child: Text('noData'),): ListView.builder(
         itemCount: posts.length,
@@ -26,11 +27,15 @@ class HomeScreen extends ConsumerWidget {
           final post = posts[index];
           return PostListItem(
             post: post,
-            onDelete: () async {
-              ref.read(loadingProvider.notifier).changeLoadingState(true);
-              await Future.delayed(const Duration(seconds: 3));
-              ref.read(postProvider.notifier).removePost(post.id);
-              ref.read(loadingProvider.notifier).changeLoadingState(false);
+            onDelete: ()  {
+            //  ref.read(loadingProvider.notifier).changeLoadingState(true);
+            //  await Future.delayed(const Duration(seconds: 3));
+              ref.read(postProvider.notifier).removePost(post.id,ref: ref).then(
+                  (_){
+                    _showMessageDialog(context,isLoadingWithMessage.message);
+                  }
+              );
+             // ref.read(loadingProvider.notifier).changeLoadingState(false);
             },
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(
@@ -56,21 +61,21 @@ class HomeScreen extends ConsumerWidget {
 
   void _showMessageDialog(BuildContext context, String message) {
 
+
+ print('^_^_^_^_^_^');
     showDialog(
         context: context,
-        builder: (context) {
+        builder: (BuildContext ctx) {
           return AlertDialog(
             title: const Text('title'),
             content: Text(message),
             actions: [
               TextButton(
                 onPressed: () async {
-                  CircularProgressIndicator();
-                  await Future.delayed(const Duration(seconds: 2));
 
-                  Navigator.of(context).pop();
+                  Navigator.of(ctx).pop();
                 },
-                child: Text('OK'),
+                child: const Text('OK'),
               ),
             ],
           );

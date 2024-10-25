@@ -20,7 +20,6 @@ class PostNotifier extends StateNotifier<List<PostEntity>> {
     loadPosts();
   }
 
-
   bool isLoading = false;
   final GetPostUseCase getPostUseCase;
   final AddPostUseCase addPostUseCase;
@@ -30,11 +29,11 @@ class PostNotifier extends StateNotifier<List<PostEntity>> {
   void loadPosts() {
     final result = getPostUseCase();
     result.fold(
-          (failure) {
+      (failure) {
         // Handle failure (e.g., show a message)
-        print(failure.message);
+        //  print(failure.message);
       },
-          (posts) {
+      (posts) {
         state = posts;
       },
     );
@@ -43,42 +42,60 @@ class PostNotifier extends StateNotifier<List<PostEntity>> {
   void createPost(PostEntity post) {
     final result = addPostUseCase(post);
     result.fold(
-          (failure) {
+      (failure) {
         Failure(message: "faild");
       },
-          (posts) {
+      (posts) {
         Success(message: "Done!");
       },
     );
     loadPosts();
   }
 
-  void updatePost(PostEntity post) {
+  void updatePost(PostEntity post, {WidgetRef? ref}) async {
+    if (ref != null)
+      ref.read(resultStateProvider.notifier).state =
+          ResultState('', isLoading: true);
     final result = updatePostUseCase(post);
     result.fold(
-          (failure) {
-        Failure( message: 'Fild');
+      (failure) {
+        Failure(message: 'Failed');
       },
-          (posts) {
+      (posts) async {
+        if (ref != null) {
+          await Future.delayed(const Duration(seconds: 4));
+          ref.read(loadingProvider.notifier).state = false;
+          loadPosts();
+        }
         Success(message: "Done!");
       },
     );
-    loadPosts();
   }
 
-  void removePost(String id) {
+  Future<void> removePost(String id, {WidgetRef? ref}) async {
+    // if(ref != null) ref.read(loadingProvider.notifier).state = true;
+    if (ref != null) ref.read(resultStateProvider.notifier).state = ResultState('', isLoading: true);
+
     isLoading = true;
     final result = deletePostUseCase(id);
 
-    result.fold(
-          (failure) {
-        Failure(message: "faild");
-      },
-          (posts) {
+    result.fold((failure) {
+      Failure(message: "faild");
+    },
+        /*   (posts) {
         Success(message: "Done!");
-      },
-    );
-
+      },*/
+        (posts) async {
+      if (ref != null) {
+        await Future.delayed(const Duration(seconds: 4));
+        ref.read(resultStateProvider.notifier).state =  ResultState(posts.message, isLoading: false);
+        loadPosts();
+      }
+    });
+    if (ref != null) {
+      await Future.delayed(const Duration(seconds: 4));
+      ref.read(loadingProvider.notifier).state = false;
+    }
     loadPosts();
     isLoading = false;
   }
@@ -89,8 +106,7 @@ final postRepositoryProvider = Provider<PostRepository>((ref) {
 });
 
 final postProvider =
-StateNotifierProvider<PostNotifier, List<PostEntity>>((ref) {
-
+    StateNotifierProvider<PostNotifier, List<PostEntity>>((ref) {
   final repository = ref.read(postRepositoryProvider);
 
   return PostNotifier(GetPostUseCase(repository), AddPostUseCase(repository),
@@ -100,7 +116,7 @@ StateNotifierProvider<PostNotifier, List<PostEntity>>((ref) {
 class LoadingNotifier extends StateNotifier<bool> {
   LoadingNotifier(super.state);
 
-  void changeLoadingState(bool value){
+  void changeLoadingState(bool value) {
     state = value;
   }
 }
@@ -108,3 +124,18 @@ class LoadingNotifier extends StateNotifier<bool> {
 final loadingProvider = StateNotifierProvider<LoadingNotifier, bool>((ref) {
   return LoadingNotifier(false);
 });
+
+class ResultState {
+  final String message;
+  bool isLoading;
+
+  ResultState(this.message, {this.isLoading = false});
+}
+
+class ResultStateStateNotifier extends StateNotifier<ResultState> {
+  ResultStateStateNotifier(super.state);
+}
+
+final resultStateProvider =
+    StateNotifierProvider<ResultStateStateNotifier, ResultState>(
+        (ref) => ResultStateStateNotifier(ResultState('')));
